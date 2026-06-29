@@ -2,7 +2,7 @@ name: Scrape leaderboard
 
 on:
   schedule:
-    - cron: "*/30 * * * *" # every 30 minutes
+    - cron: "*/15 * * * *" # every 15 minutes
   workflow_dispatch: {} # allow manual runs from the Actions tab
 
 # Single in-flight run; a new schedule tick won't pile up on a slow one.
