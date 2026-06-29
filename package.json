@@ -1,0 +1,12 @@
+{
+  "name": "hdt-lobbymmr-leaderboard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Scrapes Blizzard's Battlegrounds leaderboard (US/EU/AP, solo + duo) and publishes flat files for the HDT_LobbyMMR plugin.",
+  "scripts": {
+    "start": "node scrape.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
