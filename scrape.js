@@ -20,6 +20,7 @@ const MODES = [
 const OUT_DIR = path.join(__dirname, "dist");
 const ENTRY_SEPARATOR = "\n<br />"; // must match LobbyMmr.cs response split
 const PAGE_DELAY_MS = 120;          // be gentle with Blizzard, but keep runs short
+const CONCURRENCY = 3;              // pages fetched in parallel (bounded for politeness)
 const MAX_PAGE_RETRIES = 2;
 const USER_AGENT = "hdt-lobbymmr-leaderboard (https://github.com/zakarulcodes/hdt-lobbymmr-leaderboard)";
 
@@ -42,19 +43,31 @@ async function fetchPage(region, leaderboardId, page) {
 }
 
 // Returns a Map<name, rating(string)>; first occurrence of a name wins,
-// matching the plugin's own de-duplication behaviour.
+// matching the plugin's own de-duplication behaviour. Pages are fetched
+// through a bounded worker pool (CONCURRENCY in flight) for speed, but their
+// results are assembled strictly in page order so the output is identical to
+// a sequential scrape and the first-occurrence de-dup stays deterministic.
 async function scrapeBoard(region, leaderboardId) {
-  const board = new Map();
-
   const first = await fetchPage(region, leaderboardId, 1);
   const totalPages = first?.leaderboard?.pagination?.totalPages || 1;
-  collectRows(first, board);
 
-  for (let page = 2; page <= totalPages; page++) {
-    await sleep(PAGE_DELAY_MS);
-    const data = await fetchPage(region, leaderboardId, page);
-    collectRows(data, board);
+  const pages = new Array(totalPages + 1); // 1-indexed; pages[p] = raw page JSON
+  pages[1] = first;
+
+  let nextPage = 2;
+  async function worker() {
+    while (true) {
+      const page = nextPage++;
+      if (page > totalPages) return;
+      pages[page] = await fetchPage(region, leaderboardId, page);
+      if (PAGE_DELAY_MS) await sleep(PAGE_DELAY_MS);
+    }
   }
+  const workerCount = Math.min(CONCURRENCY, Math.max(1, totalPages - 1));
+  await Promise.all(Array.from({ length: workerCount }, worker));
+
+  const board = new Map();
+  for (let page = 1; page <= totalPages; page++) collectRows(pages[page], board);
   return board;
 }
 
