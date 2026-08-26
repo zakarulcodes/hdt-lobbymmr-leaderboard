@@ -18,6 +18,9 @@ const MODES = [
 ];
 
 const OUT_DIR = path.join(__dirname, "dist");
+// Static, never-changing files (past-season history) served alongside the live
+// boards. Copied into dist/ each run so they survive the orphan gh-pages publish.
+const STATIC_DIR = path.join(__dirname, "static");
 const ENTRY_SEPARATOR = "\n<br />"; // must match LobbyMmr.cs response split
 const PAGE_DELAY_MS = 120;          // be gentle with Blizzard, but keep runs short
 const CONCURRENCY = 3;              // pages fetched in parallel (bounded for politeness)
@@ -93,6 +96,15 @@ function serialize(board) {
 
 async function main() {
   fs.mkdirSync(OUT_DIR, { recursive: true });
+
+  // Ship the static past-season history files with every publish.
+  if (fs.existsSync(STATIC_DIR)) {
+    for (const f of fs.readdirSync(STATIC_DIR)) {
+      fs.copyFileSync(path.join(STATIC_DIR, f), path.join(OUT_DIR, f));
+      console.log(`static ${f}`);
+    }
+  }
+
   let failed = false;
 
   for (const region of REGIONS) {
